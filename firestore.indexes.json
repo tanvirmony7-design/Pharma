@@ -1,0 +1,7 @@
+{
+  "indexes": [
+    { "collectionGroup": "medicines", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "branchId", "order": "ASCENDING" }, { "fieldPath": "name", "order": "ASCENDING" } ] },
+    { "collectionGroup": "sales", "queryScope": "COLLECTION", "fields": [ { "fieldPath": "branchId", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}

@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myProfile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function activeUser() { return signedIn() && myProfile().active == true; }
+    function role() { return myProfile().role; }
+    function canManageStock() { return activeUser() && role() in ['super_admin', 'admin', 'manager', 'warehouse']; }
+    function canSell() { return activeUser() && role() in ['super_admin', 'admin', 'manager', 'sales']; }
+    function sameBranch(branchId) { return myProfile().branchIds.hasAny([branchId]); }
+
+    match /users/{uid} {
+      allow read: if activeUser() && (request.auth.uid == uid || role() in ['super_admin', 'admin']);
+      // Staff accounts and roles must be provisioned by a trusted Admin SDK process.
+      allow create, update, delete: if false;
+    }
+    match /medicines/{medicineId} {
+      allow read: if activeUser() && sameBranch(resource.data.branchId);
+      allow create: if canManageStock() && sameBranch(request.resource.data.branchId);
+      allow update: if canManageStock() && sameBranch(resource.data.branchId)
+                    && request.resource.data.branchId == resource.data.branchId;
+      allow delete: if activeUser() && role() in ['super_admin', 'admin'] && sameBranch(resource.data.branchId);
+    }
+    match /customers/{customerId} {
+      allow read: if activeUser() && sameBranch(resource.data.branchId);
+      allow create, update: if canSell() && sameBranch(request.resource.data.branchId);
+      allow delete: if activeUser() && role() in ['super_admin', 'admin'] && sameBranch(resource.data.branchId);
+    }
+    match /sales/{saleId} {
+      allow read: if activeUser() && sameBranch(resource.data.branchId);
+      // Sale creation and stock deduction are performed by the trusted Cloud Function only.
+      allow write: if false;
+    }
+    match /auditLogs/{logId} {
+      allow read: if activeUser() && role() in ['super_admin', 'admin', 'manager'];
+      allow create, update, delete: if false;
+    }
+  }
+}
